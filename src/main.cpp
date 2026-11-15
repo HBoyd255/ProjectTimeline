@@ -2,69 +2,10 @@
 #include <MQTT.h>
 #include <WiFi.h>
 
+#include "sevenSegment.h"
 #include "wifiCredentials.h"
 
 TaskHandle_t Task2;
-
-#define DATA 47
-#define LATCH 33
-#define CLOCK 34
-
-#define CELL_A 0b01110000
-#define CELL_B 0b10110000
-#define CELL_C 0b11010000
-#define CELL_D 0b11100000
-
-#define SEG_A 0b10000000
-#define SEG_B 0b01000000
-#define SEG_C 0b00100000
-#define SEG_D 0b00010000
-#define SEG_E 0b00001000
-#define SEG_F 0b00000100
-#define SEG_G 0b00000010
-#define SEG_H 0b00000001
-
-const uint8_t CHAR_0 = SEG_A | SEG_B | SEG_C | SEG_E | SEG_F | SEG_G;
-const uint8_t CHAR_1 = SEG_C | SEG_F;
-const uint8_t CHAR_2 = SEG_A | SEG_C | SEG_D | SEG_E | SEG_G;
-const uint8_t CHAR_3 = SEG_A | SEG_C | SEG_D | SEG_F | SEG_G;
-const uint8_t CHAR_4 = SEG_B | SEG_C | SEG_D | SEG_F;
-const uint8_t CHAR_5 = SEG_A | SEG_B | SEG_D | SEG_F | SEG_G;
-const uint8_t CHAR_6 = SEG_A | SEG_B | SEG_D | SEG_E | SEG_F | SEG_G;
-const uint8_t CHAR_7 = SEG_A | SEG_C | SEG_F;
-const uint8_t CHAR_8 = SEG_A | SEG_B | SEG_C | SEG_D | SEG_E | SEG_F | SEG_G;
-const uint8_t CHAR_9 = SEG_A | SEG_B | SEG_C | SEG_D | SEG_F;
-
-uint8_t CHARACTERS[10] = {CHAR_0, CHAR_1, CHAR_2, CHAR_3, CHAR_4,
-                          CHAR_5, CHAR_6, CHAR_7, CHAR_8, CHAR_9};
-
-uint8_t CELLS[4] = {CELL_A, CELL_B, CELL_C, CELL_D};
-
-volatile uint8_t screen[4] = {0, 0, 0, 0};
-
-void UseShiftReg(uint8_t byteA, uint8_t byteB) {
-    uint16_t value = byteA << 8 | byteB;
-
-    digitalWrite(LATCH, 1);
-    for (int i = 0; i < 16; i++) {
-        digitalWrite(DATA, value & 1);
-        value >>= 1;
-        digitalWrite(CLOCK, 1);
-        digitalWrite(CLOCK, 0);
-        /* code */
-    }
-    digitalWrite(LATCH, 0);
-}
-
-void UseShiftRegThread(void* pvParameters) {
-    while (1) {
-        static int x = 0;
-
-        UseShiftReg(CELLS[x], screen[x]);
-
-        x = (x + 1) & 3;
-    }
-}
 
 // Code Modified from
 // https://forum.arduino.cc/t/simple-example-for-time-via-internet-esp32/627654/2
@@ -89,7 +30,7 @@ NeoPixelBus<NeoGrbFeature, NeoWs2812xMethod> ledStrip(LED_COUNT, DATA_PIN);
 
 int global_target_time = -1;
 
-uint8_t fade_animation[255] = {
+const uint8_t fade_animation[255] = {
     2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  2,  3,  3,  4,  4,
     5,  5,  6,  7,  7,  8,  9,  9,  10, 11, 12, 13, 13, 14, 15, 16, 17, 18, 19,
     20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 34, 35, 36, 38, 39, 40,
@@ -243,13 +184,51 @@ void stringFixer(String* stringToFix) {
     }
 }
 
+void showCurrentTimeOnSevenSeg(struct tm* current_time_struct) {
+    String current_minute_str = String(current_time_struct->tm_min);
+    String current_hour_str = String(current_time_struct->tm_hour);
+
+    stringFixer(&current_minute_str);
+    stringFixer(&current_hour_str);
+
+    uint8_t current_hour_msd = (current_hour_str[0]) - '0';
+    uint8_t current_hour_lsd = (current_hour_str[1]) - '0';
+
+    uint8_t current_minute_msd = (current_minute_str[0]) - '0';
+    uint8_t current_minute_lsd = (current_minute_str[1]) - '0';
+
+    setDigitsOnSevenSeg(current_hour_msd, current_hour_lsd, current_minute_msd,
+                        current_minute_lsd);
+}
+
+void showTargetOnSevenSeg() {
+    int target_hour = global_target_time / 60;
+    int target_min = global_target_time - (target_hour * 60);
+
+    String target_hour_str = String(target_hour);
+    String target_min_str = String(target_min);
+
+    stringFixer(&target_hour_str);
+    stringFixer(&target_min_str);
+
+    int target_hour_msd = (target_hour_str[0]) - '0';
+    int target_hour_lsd = (target_hour_str[1]) - '0';
+
+    int target_minute_msd = (target_min_str[0]) - '0';
+    int target_minute_lsd = (target_min_str[1]) - '0';
+
+    setDigitsOnSevenSeg(target_hour_msd, target_hour_lsd, target_minute_msd,
+                        target_minute_lsd);
+}
+
 void do_time() {
     // I think time is provided by this lib
     // https://sourceware.org/newlib/libc.html#Timefns
     time_t current = time(nullptr);
-    struct tm* time_thing = localtime(&current);
+    struct tm* current_time_struct = localtime(&current);
 
-    int mins_since_midnight = (time_thing->tm_hour * 60) + time_thing->tm_min;
+    int mins_since_midnight =
+        (current_time_struct->tm_hour * 60) + current_time_struct->tm_min;
     int remaining_time = global_target_time - mins_since_midnight;
     int blocks_of_15 = ((remaining_time + 14) / 15);
 
@@ -275,51 +254,9 @@ void do_time() {
         return;
     }
 
-    String current_minute_str = String(time_thing->tm_min);
-    String current_hour_str = String(time_thing->tm_hour);
+    showCurrentTimeOnSevenSeg();
 
-    stringFixer(&current_minute_str);
-    stringFixer(&current_hour_str);
-
-    int current_hour_msd = (current_hour_str[0]) - '0';
-    int current_hour_lsd = (current_hour_str[1]) - '0';
-
-    int current_minute_msd = (current_minute_str[0]) - '0';
-    int current_minute_lsd = (current_minute_str[1]) - '0';
-
-    bool blinker = (millis() >> 9) & 1;
-
-    screen[0] = CHARACTERS[current_hour_msd];
-    screen[1] = CHARACTERS[current_hour_lsd] | (SEG_H & blinker);
-    screen[2] = CHARACTERS[current_minute_msd];
-    screen[3] = CHARACTERS[current_minute_lsd];
-
-    int target_hour = global_target_time / 60;
-    int target_min = global_target_time - (target_hour * 60);
-
-
-    String target_hour_str = String(target_hour);
-    String target_min_str = String(target_min);
-
-    stringFixer(&target_hour_str);
-    stringFixer(&target_min_str);
-
-    int target_hour_msd = (target_hour_str[0]) - '0';
-    int target_hour_lsd = (target_hour_str[1]) - '0';
-
-    int target_minute_msd = (target_min_str[0]) - '0';
-    int target_minute_lsd = (target_min_str[1]) - '0';
-
-    // screen[0] = CHARACTERS[target_hour_msd];
-    // screen[1] = CHARACTERS[target_hour_lsd] | (SEG_H & blinker);
-    // screen[2] = CHARACTERS[target_minute_msd];
-    // screen[3] = CHARACTERS[target_minute_lsd];
-
-    Serial.println(target_hour_msd);
-    Serial.println(target_hour_lsd);
-    Serial.println(target_minute_msd);
-    Serial.println(target_minute_lsd);
-    Serial.println();
+    // showTargetOnSevenSeg();
 
     if (blocks_of_15 <= 0) {  // Time has ran out.
         blink(25, 0, 0);
@@ -334,6 +271,7 @@ void setup() {
 
     ledStrip.Begin();
 
+    // Turn off the built in LED
     pinMode(WHITE_LED, OUTPUT);
     digitalWrite(WHITE_LED, 0);
 
@@ -347,19 +285,11 @@ void setup() {
 
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-    pinMode(DATA, OUTPUT);
-    pinMode(LATCH, OUTPUT);
-    pinMode(CLOCK, OUTPUT);
+    pinMode(SEVEN_SEG_DATA, OUTPUT);
+    pinMode(SEVEN_SEG_LATCH, OUTPUT);
+    pinMode(SEVEN_SEG_CLOCK, OUTPUT);
 
-    // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
-    xTaskCreatePinnedToCore(
-        UseShiftRegThread,   /* Task function. */
-        "UseShiftRegThread", /* name of task. */
-        10000,               /* Stack size of task */
-        NULL,                /* parameter of the task */
-        1,                   /* priority of the task */
-        &Task2,              /* Task handle to keep track of created task */
-        1);                  /* pin task to core 1 */
+    beginSevenSegThread();
 }
 
 void loop() {
