@@ -5,10 +5,10 @@
 #define NEOPIXEL_LED_COUNT 8
 #define NEOPIXEL_DATA_PIN 48
 
-void setup_neopixel();
+void setupNeopixel();
 
-void blink_alternating(uint8_t r, uint8_t g, uint8_t b);
+void blinkAlternating(uint8_t r, uint8_t g, uint8_t b);
 void blink(uint8_t r, uint8_t g, uint8_t b);
-void set_bar(uint8_t level);
+void setBar(uint8_t level);
 
 #endif  // NEOPIXEL_WRAPPER_H

@@ -63,16 +63,16 @@ void multiplexSevenSegDisplayThread(void* pvParameters) {
     }
 }
 
-void setDigitsOnSevenSeg(uint8_t digit_a, uint8_t digit_b, uint8_t digit_c,
-                         uint8_t digit_d) {
+void setDigitsOnSevenSeg(uint8_t digitA, uint8_t digitB, uint8_t digitC,
+                         uint8_t digitD) {
     // TODO add a check to ensure each value is 0-9.
 
     bool blinker = (millis() >> 9) & 1;
 
-    sevenSegValues[0] = CHARACTER_LIST[digit_a];
-    sevenSegValues[1] = CHARACTER_LIST[digit_b] | (SEG_H & blinker);
-    sevenSegValues[2] = CHARACTER_LIST[digit_c];
-    sevenSegValues[3] = CHARACTER_LIST[digit_d];
+    sevenSegValues[0] = CHARACTER_LIST[digitA];
+    sevenSegValues[1] = CHARACTER_LIST[digitB] | (SEG_H & blinker);
+    sevenSegValues[2] = CHARACTER_LIST[digitC];
+    sevenSegValues[3] = CHARACTER_LIST[digitD];
 }
 
 void beginSevenSegThread() {

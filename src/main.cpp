@@ -14,13 +14,13 @@ const long gmtOffset_sec = 0;
 const int daylightOffset_sec = 3600;
 
 WiFiClient wifi_client;
-MQTTClient mqtt_client;
+MQTTClient mqttClient;
 
 #define TOPIC_TIME F("/hb_mqtt/timeline/livingroom/deadline")
 #define CLIENT_ID "HB_MQTT_TIMELINE"
 #define ESP_HOSTNAME F("hb-mqtt-timeline")
 
-int global_target_time = -1;
+int targetTime_G = -1;
 
 void messageReceived(String& topic, String& payload) {
     Serial.print("incoming: ");
@@ -30,7 +30,7 @@ void messageReceived(String& topic, String& payload) {
 
     if (payload.length() != 8) {
         Serial.println("Cannot parse Time");
-        global_target_time = -2;
+        targetTime_G = -2;
         return;
     }
 
@@ -40,13 +40,13 @@ void messageReceived(String& topic, String& payload) {
     int hour_int = hour_str.toInt();
     int min_int = min_str.toInt();
 
-    global_target_time = hour_int * 60 + min_int;
+    targetTime_G = hour_int * 60 + min_int;
 
     Serial.print("target_time set to ");
-    Serial.println(global_target_time);
+    Serial.println(targetTime_G);
 }
 
-void connect_to_mqtt() {
+void connectToMqtt() {
     Serial.print(F("checking wifi..."));
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
@@ -54,14 +54,14 @@ void connect_to_mqtt() {
     }
 
     Serial.print(F("\nconnecting..."));
-    while (!mqtt_client.connect(CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
+    while (!mqttClient.connect(CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
         Serial.print("-");
         delay(1000);
     }
 
     Serial.println(F("\nconnected!"));
 
-    mqtt_client.subscribe(TOPIC_TIME);
+    mqttClient.subscribe(TOPIC_TIME);
 }
 
 #define WHITE_LED 35
@@ -72,92 +72,92 @@ void stringFixer(String* stringToFix) {
     }
 }
 
-void showCurrentTimeOnSevenSeg(struct tm* current_time_struct) {
-    String current_minute_str = String(current_time_struct->tm_min);
-    String current_hour_str = String(current_time_struct->tm_hour);
+void showCurrentTimeOnSevenSeg(struct tm* currentTimeStruct) {
+    String currentMinute_str = String(currentTimeStruct->tm_min);
+    String currentHour_str = String(currentTimeStruct->tm_hour);
 
-    stringFixer(&current_minute_str);
-    stringFixer(&current_hour_str);
+    stringFixer(&currentMinute_str);
+    stringFixer(&currentHour_str);
 
-    uint8_t current_hour_msd = (current_hour_str[0]) - '0';
-    uint8_t current_hour_lsd = (current_hour_str[1]) - '0';
+    uint8_t currentHourMsd = (currentHour_str[0]) - '0';
+    uint8_t currentHourLsd = (currentHour_str[1]) - '0';
 
-    uint8_t current_minute_msd = (current_minute_str[0]) - '0';
-    uint8_t current_minute_lsd = (current_minute_str[1]) - '0';
+    uint8_t currentMinuteMsd = (currentMinute_str[0]) - '0';
+    uint8_t currentMinuteLsd = (currentMinute_str[1]) - '0';
 
-    setDigitsOnSevenSeg(current_hour_msd, current_hour_lsd, current_minute_msd,
-                        current_minute_lsd);
+    setDigitsOnSevenSeg(currentHourMsd, currentHourLsd, currentMinuteMsd,
+                        currentMinuteLsd);
 }
 
 void showTargetOnSevenSeg() {
-    int target_hour = global_target_time / 60;
-    int target_min = global_target_time - (target_hour * 60);
+    int targetHour = targetTime_G / 60;
+    int targetMin = targetTime_G - (targetHour * 60);
 
-    String target_hour_str = String(target_hour);
-    String target_min_str = String(target_min);
+    String targetHour_str = String(targetHour);
+    String targetMin_str = String(targetMin);
 
-    stringFixer(&target_hour_str);
-    stringFixer(&target_min_str);
+    stringFixer(&targetHour_str);
+    stringFixer(&targetMin_str);
 
-    int target_hour_msd = (target_hour_str[0]) - '0';
-    int target_hour_lsd = (target_hour_str[1]) - '0';
+    int targetHourMsd = (targetHour_str[0]) - '0';
+    int targetHourLsd = (targetHour_str[1]) - '0';
 
-    int target_minute_msd = (target_min_str[0]) - '0';
-    int target_minute_lsd = (target_min_str[1]) - '0';
+    int targetMinuteMsd = (targetMin_str[0]) - '0';
+    int targetMinuteLsd = (targetMin_str[1]) - '0';
 
-    setDigitsOnSevenSeg(target_hour_msd, target_hour_lsd, target_minute_msd,
-                        target_minute_lsd);
+    setDigitsOnSevenSeg(targetHourMsd, targetHourLsd, targetMinuteMsd,
+                        targetMinuteLsd);
 }
 
-void do_time() {
+void doTime() {
     // I think time is provided by this lib
     // https://sourceware.org/newlib/libc.html#Timefns
     time_t current = time(nullptr);
-    struct tm* current_time_struct = localtime(&current);
+    struct tm* currentTimeStruct = localtime(&current);
 
-    int mins_since_midnight =
-        (current_time_struct->tm_hour * 60) + current_time_struct->tm_min;
-    int remaining_time = global_target_time - mins_since_midnight;
-    int blocks_of_15 = ((remaining_time + 14) / 15);
+    int minsSinceMidnight =
+        (currentTimeStruct->tm_hour * 60) + currentTimeStruct->tm_min;
+    int remainingTime = targetTime_G - minsSinceMidnight;
+    int blocksOf15 = ((remainingTime + 14) / 15);
 
     //     Serial.print("Time: ");
-    //     Serial.println(mins_since_midnight);
+    //     Serial.println(minsSinceMidnight);
     //
     //     Serial.print("Target: ");
-    //     Serial.println(global_target_time);
+    //     Serial.println(targetTime_G);
     //
     //     Serial.print("R: ");
-    //     Serial.println(remaining_time);
+    //     Serial.println(remainingTime);
     //
     //     Serial.print("B: ");
-    //     Serial.println(blocks_of_15);
+    //     Serial.println(blocksOf15);
 
-    if (mins_since_midnight < 1) {  // Error, Cannot get time from NTP.
-        blink_alternating(25, 0, 25);
+    if (minsSinceMidnight < 1) {  // Error, Cannot get time from NTP.
+        blinkAlternating(25, 0, 25);
         return;
     }
 
-    if (global_target_time < 0) {  // Error, Cannot get target time from mqtt.
-        blink_alternating(25, 0, 0);
+    if (targetTime_G < 0) {  // Error, Cannot get target time from mqtt.
+        blinkAlternating(25, 0, 0);
         return;
     }
 
-    showCurrentTimeOnSevenSeg(current_time_struct);
+    showCurrentTimeOnSevenSeg(currentTimeStruct);
 
     // showTargetOnSevenSeg();
 
-    if (blocks_of_15 <= 0) {  // Time has ran out.
+    if (blocksOf15 <= 0) {  // Time has ran out.
         blink(25, 0, 0);
         return;
     }
 
-    set_bar(blocks_of_15);
+    setBar(blocksOf15);
 }
 
 void setup() {
     Serial.begin(115200);
 
-    setup_neopixel();
+    setupNeopixel();
 
     // Turn off the built in LED
     pinMode(WHITE_LED, OUTPUT);
@@ -166,10 +166,10 @@ void setup() {
     WiFi.hostname(ESP_HOSTNAME);
     WiFi.begin(WIFI_NAME, WIFI_PASSWORD);
 
-    mqtt_client.begin(MQTT_HOSTNAME, wifi_client);
-    mqtt_client.onMessage(messageReceived);
+    mqttClient.begin(MQTT_HOSTNAME, wifi_client);
+    mqttClient.onMessage(messageReceived);
 
-    connect_to_mqtt();
+    connectToMqtt();
 
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -181,14 +181,14 @@ void setup() {
 }
 
 void loop() {
-    mqtt_client.loop();
+    mqttClient.loop();
 
     delay(10);  // <- fixes some issues with WiFi stability
 
-    if (!mqtt_client.connected()) {
+    if (!mqttClient.connected()) {
         Serial.println(F("Reconnecting To MQTT Broker"));
-        connect_to_mqtt();
+        connectToMqtt();
     }
 
-    do_time();
+    doTime();
 }
