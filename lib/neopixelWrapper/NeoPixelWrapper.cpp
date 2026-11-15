@@ -117,10 +117,6 @@ void setBar(uint8_t level) {
         r = 25;
         animationR = fadeAnimation[animationFrame];
     }
-    Serial.print("F:");
-    Serial.print(animationFrame);
-    Serial.print("V:");
-    Serial.println(animationR);
 
     for (uint8_t i = 0; i < 8; i++) {
         if (i == (level - 1)) {

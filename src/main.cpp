@@ -66,49 +66,6 @@ void connectToMqtt() {
 
 #define WHITE_LED 35
 
-void stringFixer(String* stringToFix) {
-    if (stringToFix->length() < 2) {
-        *stringToFix = "0" + *stringToFix;
-    }
-}
-
-void showCurrentTimeOnSevenSeg(struct tm* currentTimeStruct) {
-    String currentMinute_str = String(currentTimeStruct->tm_min);
-    String currentHour_str = String(currentTimeStruct->tm_hour);
-
-    stringFixer(&currentMinute_str);
-    stringFixer(&currentHour_str);
-
-    uint8_t currentHourMsd = (currentHour_str[0]) - '0';
-    uint8_t currentHourLsd = (currentHour_str[1]) - '0';
-
-    uint8_t currentMinuteMsd = (currentMinute_str[0]) - '0';
-    uint8_t currentMinuteLsd = (currentMinute_str[1]) - '0';
-
-    setDigitsOnSevenSeg(currentHourMsd, currentHourLsd, currentMinuteMsd,
-                        currentMinuteLsd);
-}
-
-void showTargetOnSevenSeg() {
-    int targetHour = targetTime_G / 60;
-    int targetMin = targetTime_G - (targetHour * 60);
-
-    String targetHour_str = String(targetHour);
-    String targetMin_str = String(targetMin);
-
-    stringFixer(&targetHour_str);
-    stringFixer(&targetMin_str);
-
-    int targetHourMsd = (targetHour_str[0]) - '0';
-    int targetHourLsd = (targetHour_str[1]) - '0';
-
-    int targetMinuteMsd = (targetMin_str[0]) - '0';
-    int targetMinuteLsd = (targetMin_str[1]) - '0';
-
-    setDigitsOnSevenSeg(targetHourMsd, targetHourLsd, targetMinuteMsd,
-                        targetMinuteLsd);
-}
-
 void doTime() {
     // I think time is provided by this lib
     // https://sourceware.org/newlib/libc.html#Timefns
@@ -142,9 +99,20 @@ void doTime() {
         return;
     }
 
-    showCurrentTimeOnSevenSeg(currentTimeStruct);
+    // Show current Time
+    setDualDigitsOnSevenSeg(currentTimeStruct->tm_hour,
+                            currentTimeStruct->tm_min);
 
-    // showTargetOnSevenSeg();
+    // Show Deadline
+    // int targetHour = targetTime_G / 60;
+    // int targetMin = targetTime_G - (targetHour * 60);
+    // setDualDigitsOnSevenSeg(targetHour, targetMin);
+
+    // Show Remaining time
+//     int remaining_hours = remainingTime / 60;
+//     int remaining_min = remainingTime - (remaining_hours * 60);
+// 
+//     setDualDigitsOnSevenSeg(remaining_hours, remaining_min);
 
     if (blocksOf15 <= 0) {  // Time has ran out.
         blink(25, 0, 0);

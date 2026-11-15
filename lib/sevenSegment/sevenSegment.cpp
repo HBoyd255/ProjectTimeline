@@ -42,6 +42,12 @@ volatile uint8_t sevenSegValues[4] = {0, 0, 0, 0};
 
 TaskHandle_t Task2;
 
+void stringFixer(String* stringToFix) {
+    if (stringToFix->length() < 2) {
+        *stringToFix = "0" + *stringToFix;
+    }
+}
+
 void UseShiftReg(uint8_t byteA, uint8_t byteB) {
     uint16_t value = byteA << 8 | byteB;  // Merge the two bytes into one 16-bit
 
@@ -57,9 +63,10 @@ void UseShiftReg(uint8_t byteA, uint8_t byteB) {
 
 void multiplexSevenSegDisplayThread(void* pvParameters) {
     while (1) {
-        for (uint8_t i = 0; i < 4; i++) {
-            UseShiftReg(CELL_LIST[i], sevenSegValues[i]);
-        }
+        UseShiftReg(CELL_LIST[0], sevenSegValues[0]);
+        UseShiftReg(CELL_LIST[1], sevenSegValues[1]);
+        UseShiftReg(CELL_LIST[2], sevenSegValues[2]);
+        UseShiftReg(CELL_LIST[3], sevenSegValues[3]);
     }
 }
 
@@ -73,6 +80,22 @@ void setDigitsOnSevenSeg(uint8_t digitA, uint8_t digitB, uint8_t digitC,
     sevenSegValues[1] = CHARACTER_LIST[digitB] | (SEG_H & blinker);
     sevenSegValues[2] = CHARACTER_LIST[digitC];
     sevenSegValues[3] = CHARACTER_LIST[digitD];
+}
+
+void setDualDigitsOnSevenSeg(uint8_t digitAB, uint8_t digitCD) {
+    String digitAB_str = String(digitAB);
+    String digitCD_str = String(digitCD);
+
+    stringFixer(&digitAB_str);
+    stringFixer(&digitCD_str);
+
+    uint8_t digitA = (digitAB_str[0]) - '0';
+    uint8_t digitB = (digitAB_str[1]) - '0';
+
+    uint8_t digitC = (digitCD_str[0]) - '0';
+    uint8_t digitD = (digitCD_str[1]) - '0';
+
+    setDigitsOnSevenSeg(digitA, digitB, digitC, digitD);
 }
 
 void beginSevenSegThread() {
