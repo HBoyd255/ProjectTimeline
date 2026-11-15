@@ -40,6 +40,8 @@
 
 volatile uint8_t sevenSegValues[4] = {0, 0, 0, 0};
 
+TaskHandle_t Task2;
+
 void UseShiftReg(uint8_t byteA, uint8_t byteB) {
     uint16_t value = byteA << 8 | byteB;  // Merge the two bytes into one 16-bit
 
